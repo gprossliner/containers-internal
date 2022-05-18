@@ -32,7 +32,7 @@ func run() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWUSER,
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWUSER | syscall.CLONE_NEWPID,
 		UidMappings: []syscall.SysProcIDMap{
 			{ContainerID: 0, HostID: os.Getuid(), Size: 1},
 		},

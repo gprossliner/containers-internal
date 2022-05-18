@@ -66,5 +66,13 @@ Allows to
 This allows us to map id 0 (root) in container to be XXX (unprivileged) outside container
 
 * Check the setup of the uid_map in code
-* Check /proc/XXX/uid_map
+* Check /proc/XXX/uid_map (`echo $$` to get current PID)
+
+# Process-ID Namespace
+
+By specifing the `CLONE_NEWPID` flag, you can create a new PID namespace.
+
+* Check the code for the added flag
+* `echo $$` in shell
+* `ps -x` in shell -> ?
 
