@@ -49,3 +49,22 @@ Try to change the hostname in sh!
 * Let's checkout the code with CLONE_NEWUSER!
 * And try to change the hostname! -> peng...
 
+
+# UID (User-ID) mapping
+
+Allows to 
+
+>    User and group ID mappings: uid_map and gid_map
+       When a user namespace is created, it starts out without a mapping
+       of user IDs (group IDs) to the parent user namespace.  The
+       /proc/[pid]/uid_map and /proc/[pid]/gid_map files (available
+       since Linux 3.5) expose the mappings for user and group IDs
+       inside the user namespace for the process pid.  These files can
+       be read to view the mappings in a user namespace and written to
+       (once) to define the mappings.
+
+This allows us to map id 0 (root) in container to be XXX (unprivileged) outside container
+
+* Check the setup of the uid_map in code
+* Check /proc/XXX/uid_map
+
