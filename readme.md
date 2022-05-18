@@ -26,3 +26,26 @@ Distinct kernel namespace for:
 
 Try to change the hostname in sh!
 
+# CLONE_NEWUSER (>= Linux 3.8) 
+
+>      Starting in Linux 3.8, unprivileged processes can create user
+       namespaces, and the other types of namespaces can be created with
+       just the CAP_SYS_ADMIN capability in the caller's user namespace.
+
+       When a nonuser namespace is created, it is owned by the user
+       namespace in which the creating process was a member at the time
+       of the creation of the namespace.  Privileged operations on
+       resources governed by the nonuser namespace require that the
+       process has the necessary capabilities in the user namespace that
+       owns the nonuser namespace.
+
+       If CLONE_NEWUSER is specified along with other CLONE_NEW* flags
+       in a single clone(2) or unshare(2) call, the user namespace is
+       guaranteed to be created first, giving the child (clone(2)) or
+       caller (unshare(2)) privileges over the remaining namespaces
+       created by the call.  Thus, it is possible for an unprivileged
+       caller to specify this combination of flags.
+
+* Let's checkout the code with CLONE_NEWUSER!
+* And try to change the hostname! -> peng...
+
