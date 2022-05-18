@@ -76,3 +76,28 @@ By specifing the `CLONE_NEWPID` flag, you can create a new PID namespace.
 * `echo $$` in shell
 * `ps -x` in shell -> ?
 
+# Give it an own root
+
+Download an Alpine "Mini Root Filesystem" for our container
+
+https://www.alpinelinux.org/downloads/
+https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/alpine-minirootfs-3.15.4-x86_64.tar.gz
+
+```sh
+pushd /tmp
+mkdir alpineroot
+cd alpineroot
+wget https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/alpine-minirootfs-3.15.4-x86_64.tar.gz
+tar -xvf alpine-minirootfs-3.15.4-x86_64.tar.gz
+```
+
+Use `chroot` (https://linux.die.net/man/1/chroot) to specify a new root `/` for the container.
+
+* The code has to be modified a bit, because we can't pass the new root when starting a process (like NS).
+* We need to invoke the `chroot` before invoking our command
+* But we don't wanna mess around with the state of our main process
+* So we create a process tree main -> child -> run
+
+Test running the following:
+* `ls /`
+* `ps -x`
