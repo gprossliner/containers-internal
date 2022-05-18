@@ -100,4 +100,17 @@ Use `chroot` (https://linux.die.net/man/1/chroot) to specify a new root `/` for 
 
 Test running the following:
 * `ls /`
-* `ps -x`
+* `ps -a`
+
+# Mount proc
+
+We have a distinct mount ns (`CLONE_NEWNS`), but have not mounted anything
+If you check `/proc/??/mounts` you'll the system mounts
+If you check the Alpine Root Image, you see /proc in an empty dir (prepared for mounting)
+
+Check the Code for the `syscall.Mount` of the `proc` filesystem!
+And test `ps -a` again!
+
+We chould do this for /tmp, /dev, ... etc.
+
+

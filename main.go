@@ -53,6 +53,9 @@ func child() {
 	must(syscall.Chroot("/tmp/alpineroot"))
 	os.Chdir("/")
 
+	// mount proc
+	must(syscall.Mount("proc", "proc", "proc", 0, ""))
+
 	// create a exec Command and setup pipes
 	cmd := exec.Command(os.Args[2], os.Args[3:]...)
 	cmd.Stdin = os.Stdin
