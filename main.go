@@ -86,5 +86,9 @@ func child() {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	must(cmd.Run())
+	err = cmd.Run()
+	_, ok := err.(*exec.ExitError)
+	if !ok {
+		must(err)
+	}
 }
