@@ -113,4 +113,28 @@ And test `ps -a` again!
 
 We chould do this for /tmp, /dev, ... etc.
 
+# Use overlayfs
+
+All changes to the filesystem are written directly to our Alpine root.
+So we can't isolate container instances.
+
+For such an isolation, we use a differenting filesystem, like overlayfs.
+https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html
+
+> This document describes a prototype for a new approach to providing overlay-filesystem functionality in Linux (sometimes referred to as union-filesystems). An overlay-filesystem tries to present a filesystem which is the result over overlaying one filesystem on top of the other.
+
+The "lowerdir" is the readonly baseline. For multiple layers, you can have multiple lowerdirs
+The "upperdir" is the writable layer above. All changes to the resulting filesystem are written to the "upperdir".
+
+Our setup:
+
+lowerdir=Alpine root
+upperdir=tempoary location, this will contain all changes we make to the fs
+workdir=tempoary location, this is needed by overlay for some operations (like atomic move)
+
+* Check the code for our overlay fs
+* Try to create new files, and check upperdir
+* Try to delete existing file, and check upperdir
+* Restart to start from scratch
+* Anaylse docker images, containers, and overlayfs
 

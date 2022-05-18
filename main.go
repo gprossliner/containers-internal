@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"syscall"
 )
 
@@ -42,15 +43,39 @@ func run() {
 		UidMappings: []syscall.SysProcIDMap{
 			{ContainerID: 0, HostID: os.Getuid(), Size: 1},
 		},
+		GidMappings: []syscall.SysProcIDMap{
+			{ContainerID: 0, HostID: os.Getgid(), Size: 1},
+		},
 	}
 
 	must(cmd.Run())
 }
 
+func subdir(parent string, name string) string {
+	dir := path.Join(parent, name)
+	must(os.MkdirAll(dir, os.ModePerm))
+	return dir
+}
+
 func child() {
 
+	// initialize a overlay mount for our container-fs
+	lowerdir := "/tmp/alpineroot"
+	tmpdir, err := os.MkdirTemp("", "containers-internal-")
+	must(err)
+	fmt.Printf("Created tmp dir %s\n", tmpdir)
+	defer os.RemoveAll(tmpdir)
+
+	upperdir := subdir(tmpdir, "upper")
+	workdir := subdir(tmpdir, "workdir")
+	rootdir := subdir(tmpdir, "root")
+
+	// mount overlayfs
+	options := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lowerdir, upperdir, workdir)
+	must(syscall.Mount("overlay", rootdir, "overlay", 0, options))
+
 	// change the root for the child process
-	must(syscall.Chroot("/tmp/alpineroot"))
+	must(syscall.Chroot(rootdir))
 	os.Chdir("/")
 
 	// mount proc
