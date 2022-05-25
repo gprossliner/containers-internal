@@ -138,3 +138,24 @@ workdir=tempoary location, this is needed by overlay for some operations (like a
 * Restart to start from scratch
 * Anaylse docker images, containers, and overlayfs
 
+# Limit the container with cgroups
+
+Using cgroups in rootless mode is troublesome (https://statswork.wiki/engine/security/rootless/#known-limitations). It works on Debian and Ubuntu, because of systemd support.
+
+CGROUP documentation:
+
+https://www.kernel.org/doc/Documentation/cgroup-v1/
+https://www.kernel.org/doc/Documentation/cgroup-v1/cpusets.txt
+https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
+
+https://en.wikipedia.org/wiki/Cgroups
+
+
+## Show docker cpu set
+
+https://docs.docker.com/engine/reference/run/#cpuset-constraint
+
+docker run -it --rm --cpuset-cpus="1" ubuntu 
+
+apt install stress
+stress -c 8
