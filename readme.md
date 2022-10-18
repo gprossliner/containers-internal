@@ -159,3 +159,257 @@ docker run -it --rm --cpuset-cpus="1" ubuntu
 
 apt install stress
 stress -c 8
+
+## Use Vagrant for an easy VM setup
+
+``` sh
+# https://www.vagrantup.com/
+
+vagrant init ubuntu/xenial64
+vagrant up
+
+# Start a terminal session
+vagrant ssh
+
+# check network interfaces
+ip a
+export IF=enp0s3 # variable to point to primary interface
+export PS1="HOST $PS1"
+
+```
+
+# Create a network namespace
+
+```sh
+# we could just use `unshare` like in part 1, like:
+unshare --net bash
+ip a # only shows loopback, down
+ip netns list # no result, anonymous netns
+exit
+
+# create a named netns in host terminal
+export NETNS=ns1
+ip netns add netns1
+ip netns list
+
+# exec shell in container terminal
+export NETNS=ns1
+ip netns exec $NETNS bash
+export PS1="CONT $PS1"
+ip a # only loopback
+
+# test loopback interface
+ping 127.0.0.1  # Network is unreachable
+
+ip link set dev lo up
+ping 127.0.0.1  # Network is up
+```
+
+# Connect the Network namespace with a veth pair
+
+```sh
+# test connectivity in host
+ping 8.8.8.8 # ok
+ip route # check routes, and test with traceroute -> gateway default route
+
+# we need to create a veth pair to link between namespaces in host terminal
+export VETHHOST=veth-$NETNS-host
+export VETHCONT=veth-$NETNS-cont
+ip link add $VETHHOST type veth peer name $VETHCONT
+ip link # show interfaces
+
+# set the namespace of one side of the pair to our container namespace
+ip link set $VETHCONT netns $NETNS
+
+# check address again in HOST and CONTAINER
+ip link
+
+# retry
+ping 8.8.8.8
+
+
+# set link up in HOST terminal
+ip link set dev $VETHHOST up
+ip link # check status
+
+
+# set link up in CONT terminal
+ip link set dev $VETHCONT up
+ip link # check status
+ping 8.8.8.8 # retry
+
+
+# assign a IP to the pair in HOST terminal
+export CIP_HOST="192.168.0.1"
+ip addr add $CIP_HOST/24 dev $VETHHOST
+
+# assign a IP to the pair in CONT terminal
+export CIP_CONT="192.168.0.2"
+ip addr add $CIP_CONT/24 dev $VETHCONT
+
+
+# ping between the addresses
+ping $CIP_HOST
+ping $CIP_CONT
+
+
+# ping external in CONTAINTER
+ping 8.8.8.8
+
+
+# add route in CONTAINER
+ip route add default via $CIP_HOST
+
+
+# ping external in CONTAINTER
+ping 8.8.8.8
+```
+
+
+# Connect the container with NAT
+
+What we need:
+* Network Address Translation (NAT) https://en.wikipedia.org/wiki/Network_address_translation 
+* IP Tables https://wiki.ubuntuusers.de/iptables/
+* IP Masquerading https://www.linux.com/training-tutorials/what-ip-masquerading-and-when-it-use/
+
+```sh
+# enable ip_forward on HOST
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# check the FORWARD chain
+iptables -L FORWARD  # (policy ACCEPT)
+iptables -P FORWARD DROP # (policy DROP per default)
+
+# check the NAT table
+iptables -t nat -L
+
+# append a rule to the POSTROUTING chain to MASQUERADE
+iptables -t nat -A POSTROUTING -s 192.168.0.0/255.255.255.0 -o $IF -j MASQUERADE
+
+# add both directions to the FORWARD chain
+iptables -A FORWARD -i $IF -o $VETHHOST -j ACCEPT
+iptables -A FORWARD -o $IF -i $VETHHOST -j ACCEPT
+
+# ping external in CONTAINTER
+ping 8.8.8.8
+
+
+
+```
+
+
+# Use a Linux Bridge for Container to Container Communications
+
+We we want to comminucate between containers, but don't want to NAT or create a vast amount of pairs.
+A Linux Bridge is like a switch, where mutltiple Interfaces can be connected
+
+```sh
+
+# reset VM
+vagrant destroy
+vagrant up
+
+# create the bridge
+export BRIDGE_IP=192.168.1.1
+ip link add name the-bridge type bridge
+ip addr add $BRIDGE_IP/24 dev the-bridge
+ip link set the-bridge up
+
+# create container 1
+export NETNS=ns1
+export CIP=192.168.1.10
+export VETHHOST=veth-$NETNS-host
+export VETHCONT=veth-$NETNS-cont
+
+ip netns add $NETNS
+ip link add $VETHHOST type veth peer name $VETHCONT
+ip link set $VETHHOST up
+ip link set $VETHCONT netns $NETNS
+ip netns exec $NETNS ip link set lo up
+ip netns exec $NETNS ip link set $VETHCONT up
+ip netns exec $NETNS ip addr add $CIP/24 dev $VETHCONT
+ip link set $VETHHOST master the-bridge       # assign the bridge
+ip netns exec $NETNS ip route add default via $BRIDGE_IP
+
+# test pings from HOST
+ping $CIP
+ping $BRIDGE_IP
+
+# test pings from CONTAINER
+ip netns exec $NETNS ping $CIP
+ip netns exec $NETNS ping $BRIDGE_IP
+
+# create container 2
+export NETNS=ns2
+export VETHHOST=veth-$NETNS-host
+export VETHCONT=veth-$NETNS-cont
+export CIP=192.168.1.11
+... same scripts like container 1
+
+
+
+# external access (NAT, MASQUERADE) only needed for bridge
+echo 1 > /proc/sys/net/ipv4/ip_forward
+iptables -t nat -A POSTROUTING -s $BRIDGE_IP/24 ! -o the-bridge -j MASQUERADE
+```
+
+
+# Check how docker uses all this
+
+We use different scenarios and inspect `ip a`, `bridge link`, ...
+
+```sh
+vagrant snapshot restore docker
+ip a
+
+
+# host networking
+docker run --net=host -it alpine ip a
+
+# bridge networking (=default)
+docker run --net=bridge -it alpine ip a
+
+# custom network (=used in docker-compose)
+docker network create mynet
+
+# use different terminals here
+docker run -it --rm --name=cont1 --network=mynet alpine
+docker run -it --rm --name=cont2 --network=mynet alpine
+docker network delete mynet
+
+# container attached networking (different terminals)
+docker run -it --rm --name=cont1 alpine
+docker run -it --rm --name=cont2 --network=container:cont1 alpine
+
+
+
+ls -l /proc/$(docker inspect cont1 -f="{{.State.Pid}}")/ns
+```
+
+
+# Use port-forwarding to run a server in the container
+
+
+We use a simple netcat server `nc -l PORT` and client `nc HOST PORT'
+
+```sh
+# start a server in CONTAINER termial listening on port 8080
+while true; do { echo -e 'CONTAINER 1'; } | nc -l 8080; done
+
+# test if we could listen in HOST without EADDRINUSE
+nc -l 8080
+
+# test client in HOST terminal for container-ip 192.168.0.2
+nc $CIP 8080
+
+# setup DNAT (Destination-NAT) from 6200 to 192.168.0.2:8080
+export DPORT=6200
+iptables -t nat -A PREROUTING -p tcp -i $IF --dport $DPORT -j DNAT --to-destination $CIP:8080
+```
+
+# Rootless Containers
+
+https://github.com/rootless-containers/rootlesskit
+https://github.com/rootless-containers/slirp4netns
+https://faun.pub/podman-rootless-container-networking-1cb5a1973b4b
